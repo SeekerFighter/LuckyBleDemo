@@ -1,0 +1,30 @@
+apply plugin: 'com.android.application'
+
+apply plugin: 'kotlin-android'
+
+apply plugin: 'kotlin-android-extensions'
+
+android {
+    compileSdkVersion rootProject.ext.android.COMPILE_SDK_VERSION
+    defaultConfig {
+        applicationId "seeker.luckybledemo"
+        minSdkVersion rootProject.ext.android.MIN_SDK_VERSION
+        targetSdkVersion rootProject.ext.android.TARGET_SDK_VERSION
+        versionCode rootProject.ext.android.VERSION_CODE
+        versionName rootProject.ext.android.VERSION_NAME
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    api rootProject.ext.dependencies["appcompat-androidx"]
+    implementation project(':LuckyBle')
+}
