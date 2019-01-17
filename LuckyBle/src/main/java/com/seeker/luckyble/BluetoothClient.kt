@@ -2,11 +2,14 @@ package com.seeker.luckyble
 
 import android.bluetooth.BluetoothManager
 import android.content.Context
-import com.seeker.luckyble.connect.BleConnectProcessor
+import com.seeker.luckyble.connect.BleWorkProcessor
 import com.seeker.luckyble.connect.IBleProcessor
 import com.seeker.luckyble.connect.callbacks.*
 import com.seeker.luckyble.exception.NonSupportException
 import com.seeker.luckyble.request.Request
+import com.seeker.luckyble.upgrade.Loader
+import com.seeker.luckyble.upgrade.UpgradeImpl
+import com.seeker.luckyble.upgrade.UpgradeListener
 import com.seeker.luckyble.utils.isSupportBle
 
 /**
@@ -20,7 +23,7 @@ internal class BluetoothClient {
 
     private lateinit var bluetoothManager: BluetoothManager
 
-    private val connectProcessor: IBleProcessor = BleConnectProcessor.newInstance()
+    private val connectProcessor: IBleProcessor = BleWorkProcessor.newInstance()
 
     private lateinit var macAddress: String
 
@@ -32,12 +35,12 @@ internal class BluetoothClient {
      * step 1
      * 初始化蓝牙相关参数
      */
-    fun initClient(context: Context, macAddress: String, disConnect: DisConnect) {
+    fun initClient(context: Context, macAddress: String, disConnect: DisConnect,upgrade: UpgradeImpl?) {
         this.macAddress = macAddress
         this.bleContext = context
         if (bleContext.isSupportBle()) {
             bluetoothManager = bleContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            connectProcessor.initProcessor(bleContext, macAddress, disConnect)
+            connectProcessor.initProcessor(bleContext, macAddress, disConnect,upgrade)
         } else {
             throw NonSupportException("当前设备不支持蓝牙操作")
         }
@@ -49,6 +52,8 @@ internal class BluetoothClient {
     fun disConnect() = connectProcessor.disConnect()
 
     fun discoverServices() = connectProcessor.discoverServices()
+
+    fun startBleUpgrade(loader: Loader, listener: UpgradeListener) = connectProcessor.startBleUpgrade(loader, listener)
 
     fun enableNotify(serviceUUID: String, characterUUID: String, enable: Boolean, descriptorValue: ByteArray) =
         connectProcessor.enableNotify(serviceUUID, characterUUID, enable, descriptorValue)

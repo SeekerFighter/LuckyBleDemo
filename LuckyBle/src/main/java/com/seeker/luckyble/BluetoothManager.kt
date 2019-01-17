@@ -8,6 +8,9 @@ import com.seeker.luckyble.request.Request
 import com.seeker.luckyble.scan.BleScanCallback
 import com.seeker.luckyble.scan.BleScanProcessor
 import com.seeker.luckyble.scan.ScanOptions
+import com.seeker.luckyble.upgrade.Loader
+import com.seeker.luckyble.upgrade.UpgradeImpl
+import com.seeker.luckyble.upgrade.UpgradeListener
 import com.seeker.luckyble.utils.getUIProxy
 
 /**
@@ -55,18 +58,23 @@ class BluetoothManager : DisConnect {
      */
     @Synchronized
     @JvmOverloads
-    fun connect(macAddress: String,autoDiscoverServices:Boolean = true,connectCallback: ConnectCallback) {
-        globalContext?.let {context->
+    fun connect(
+        macAddress: String,
+        autoDiscoverServices: Boolean = true,
+        upgradeImpl: UpgradeImpl? = null,
+        connectCallback: ConnectCallback
+    ) {
+        globalContext?.let { context ->
             var client: BluetoothClient? = clientMap[macAddress]
             if (client == null) {
                 client = BluetoothClient.instance
-                client.initClient(context, macAddress, this)
+                client.initClient(context, macAddress, this, upgradeImpl)
                 clientMap[macAddress] = client
-                client.connect(autoDiscoverServices,connectCallback.getUIProxy(true))
+                client.connect(autoDiscoverServices, connectCallback.getUIProxy(true))
             } else {
                 BleLogger.e(TAG, "macAddress[$macAddress] possible connected,need call disConnect(mac) function first")
             }
-        }?:throw NullPointerException("globalContext == null,have you invoke firstGlobalInit(Context)?")
+        } ?: throw NullPointerException("globalContext == null,have you invoke firstGlobalInit(Context)?")
     }
 
     /**
@@ -78,6 +86,13 @@ class BluetoothManager : DisConnect {
      * 查找服务
      */
     fun discoverServices(macAddress: String) = clientMap[macAddress]?.discoverServices()
+
+    /**
+     * 开始蓝牙设备升级
+     */
+    @JvmOverloads
+    fun startBleUpgrade(macAddress: String, loader: Loader, listener: UpgradeListener, postUI: Boolean = true) =
+        clientMap[macAddress]?.startBleUpgrade(loader, listener.getUIProxy(postUI))
 
     /**
      * 打开notify以及写入descriptor
@@ -93,8 +108,20 @@ class BluetoothManager : DisConnect {
         postUI: Boolean = false
     ) {
         characterListener?.let {
-            registerCharacterNotifyListener(macAddress,serviceUUID,characterUUID,it as CharacterNotifyListener,postUI)
-            registerCharacterChangedListener(macAddress,serviceUUID,characterUUID,it as CharacterChangedListener,postUI)
+            registerCharacterNotifyListener(
+                macAddress,
+                serviceUUID,
+                characterUUID,
+                it as CharacterNotifyListener,
+                postUI
+            )
+            registerCharacterChangedListener(
+                macAddress,
+                serviceUUID,
+                characterUUID,
+                it as CharacterChangedListener,
+                postUI
+            )
         }
         clientMap[macAddress]?.enableNotify(serviceUUID, characterUUID, enable, descriptorValue)
     }
@@ -110,19 +137,22 @@ class BluetoothManager : DisConnect {
         request: Request,
         writerType: Int = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE,
         callback: CharacterWriterCallback? = null,
-        postUI: Boolean = false)=
-        clientMap[macAddress]?.write(serviceUUID, characterUUID, request, writerType,callback?.getUIProxy(postUI))
+        postUI: Boolean = false
+    ) =
+        clientMap[macAddress]?.write(serviceUUID, characterUUID, request, writerType, callback?.getUIProxy(postUI))
 
     /**
      * 读取数据
      */
     @JvmOverloads
-    fun read(macAddress: String,
-             serviceUUID: String,
-             characterUUID: String,
-             callback: CharacterReadCallback? = null,
-             postUI: Boolean = false) =
-            clientMap[macAddress]?.read(serviceUUID, characterUUID, callback?.getUIProxy(postUI))
+    fun read(
+        macAddress: String,
+        serviceUUID: String,
+        characterUUID: String,
+        callback: CharacterReadCallback? = null,
+        postUI: Boolean = false
+    ) =
+        clientMap[macAddress]?.read(serviceUUID, characterUUID, callback?.getUIProxy(postUI))
 
     /**
      * 读取信号强度

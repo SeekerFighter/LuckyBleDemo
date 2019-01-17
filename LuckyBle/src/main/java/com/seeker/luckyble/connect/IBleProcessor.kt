@@ -3,15 +3,18 @@ package com.seeker.luckyble.connect
 import android.content.Context
 import com.seeker.luckyble.connect.callbacks.*
 import com.seeker.luckyble.request.Request
+import com.seeker.luckyble.upgrade.Loader
+import com.seeker.luckyble.upgrade.UpgradeImpl
+import com.seeker.luckyble.upgrade.UpgradeListener
 
 /**
  *@author  Seeker
  *@date    2018/11/22/022  15:16
  *@describe 蓝牙操作相关函数接口
  */
-internal interface IBleProcessor {
+interface IBleProcessor {
 
-    fun initProcessor(context: Context, macAddress: String,disConnect: DisConnect)
+    fun initProcessor(context: Context, macAddress: String,disConnect: DisConnect,upgrade: UpgradeImpl?)
 
     /**
      * 连接外设
@@ -29,6 +32,11 @@ internal interface IBleProcessor {
      * 获取服务字段
      */
     fun discoverServices()
+
+    /**
+     * 开始升级蓝牙设备
+     */
+    fun startBleUpgrade(loader: Loader, listener: UpgradeListener)
 
     /**
      * 打开notify

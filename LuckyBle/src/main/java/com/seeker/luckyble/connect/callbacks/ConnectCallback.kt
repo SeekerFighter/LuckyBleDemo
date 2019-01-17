@@ -16,8 +16,11 @@ interface ConnectCallback {
 
     /**
      * 服务获取回调
+     * @param success 服务获取是否成功
+     * @param bleGattProfile 服务相关参数，成功 != null
+     * @param isUpgradeMode 是否是处于升级模式
      */
-    fun onServicesFounded(success:Boolean,bleGattProfile: BleGattProfile?)
+    fun onServicesFounded(success:Boolean,bleGattProfile: BleGattProfile?,isUpgradeMode:Boolean = false)
 
     /**
      * 断开连接

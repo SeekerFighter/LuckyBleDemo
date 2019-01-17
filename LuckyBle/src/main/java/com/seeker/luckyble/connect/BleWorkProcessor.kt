@@ -11,6 +11,9 @@ import com.seeker.luckyble.connect.task.CharacterNotifyTask
 import com.seeker.luckyble.connect.task.CharacterReadTask
 import com.seeker.luckyble.connect.task.CharacterWriterTask
 import com.seeker.luckyble.request.Request
+import com.seeker.luckyble.upgrade.Loader
+import com.seeker.luckyble.upgrade.UpgradeImpl
+import com.seeker.luckyble.upgrade.UpgradeListener
 import com.seeker.luckyble.utils.*
 
 /**
@@ -18,11 +21,13 @@ import com.seeker.luckyble.utils.*
  *@date    2018/11/24/024  12:58
  *@describe 蓝牙连接操作管理类
  */
-internal class BleConnectProcessor: BluetoothGattCallback(), IBleProcessor {
+internal class BleWorkProcessor: BluetoothGattCallback(), IBleProcessor {
 
     private lateinit var bleContext:Context
 
     private lateinit var macAddress: String
+
+    private var upgrade: UpgradeImpl? = null
 
     private val workLooper: Looper
 
@@ -65,16 +70,17 @@ internal class BleConnectProcessor: BluetoothGattCallback(), IBleProcessor {
     companion object {
         private const val TAG = "BleConnectProcessor"
         fun newInstance():IBleProcessor{
-            val connectProcessor = BleConnectProcessor()
+            val connectProcessor = BleWorkProcessor()
             return (connectProcessor as IBleProcessor).getUIProxy(connectProcessor.workLooper)
         }
     }
 
-    override fun initProcessor(context: Context,macAddress: String,disConnect: DisConnect){
+    override fun initProcessor(context: Context,macAddress: String,disConnect: DisConnect,upgrade: UpgradeImpl?){
         this.bleContext = context
         this.macAddress = macAddress
         this.mBluetoothDevice = bluetoothAdapter().getRemoteDevice(macAddress)
         this.disConnect = disConnect
+        this.upgrade = upgrade
     }
 
     override fun connect(autoDiscoverServices:Boolean,connectCallback: ConnectCallback) {
@@ -107,6 +113,10 @@ internal class BleConnectProcessor: BluetoothGattCallback(), IBleProcessor {
             BleLogger.e(TAG,"discoverServices for macAddress[$macAddress] error,now disConnect!!!")
             disConnect()
         }
+    }
+
+    override fun startBleUpgrade(loader: Loader, listener: UpgradeListener) {
+        upgrade?.startBleUpgrade(loader, listener,this)
     }
 
     override fun enableNotify(serviceUUID: String,characterUUID: String,enable:Boolean,descriptorValue:ByteArray) {
@@ -176,13 +186,18 @@ internal class BleConnectProcessor: BluetoothGattCallback(), IBleProcessor {
         BleLogger.v(TAG,"onServicesDiscovered() called with status = [$status]")
         if (status == BluetoothGatt.GATT_SUCCESS) {
             mBleGattProfile.confirmCache(mBluetoothGatt)
-            connectCallback?.onServicesFounded(true,mBleGattProfile)
+            connectCallback?.onServicesFounded(true,mBleGattProfile,
+                upgrade?.isUpgradeMode(mBleGattProfile,mBluetoothGatt) ?:false)
         }else{
-            connectCallback?.onServicesFounded(false,null)
+            connectCallback?.onServicesFounded(false,null,false)
         }
     }
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+        if (upgrade != null && upgrade!!.isUpgradeMode){
+            upgrade!!.onCharacteristicChanged(gatt, characteristic)
+            return
+        }
         val key = characteristic.key()
         BleLogger.v(TAG,"onCharacteristicChanged()called for [$key]")
         characterChangedListenersMap[key]?.let {
@@ -193,6 +208,10 @@ internal class BleConnectProcessor: BluetoothGattCallback(), IBleProcessor {
     }
 
     override fun onCharacteristicWrite(gatt: BluetoothGatt,characteristic: BluetoothGattCharacteristic,status: Int) {
+        if (upgrade != null && upgrade!!.isUpgradeMode){
+            upgrade!!.onCharacteristicWrite(gatt, characteristic,status)
+            return
+        }
         BleLogger.v(TAG,"onCharacteristicWrite()called for [${characteristic.key()}],status = [$status]")
         bleDispatcher.releaseDeviceBusy()
     }
@@ -216,6 +235,9 @@ internal class BleConnectProcessor: BluetoothGattCallback(), IBleProcessor {
             BleLogger.v(TAG,"onDescriptorWrite()called for [${it.key()}],status = [$status]")
         }
         bleDispatcher.releaseDeviceBusy()
+        if (upgrade != null && upgrade!!.isUpgradeMode){
+            upgrade!!.onDescriptorWrite(gatt, descriptor,status)
+        }
     }
 
     override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
